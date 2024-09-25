@@ -28,6 +28,7 @@ use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
 use crate::print;
+use crate::utils::rpc::new_rpc_client;
 use crate::{
     commands::global,
     config::{self, data, locator, network},
@@ -209,7 +210,7 @@ impl NetworkRunnable for Cmd {
             // For testing wasm arg parsing
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
-        let client = rpc::Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         let account_details = if self.is_view {
             default_account_entry()
         } else {

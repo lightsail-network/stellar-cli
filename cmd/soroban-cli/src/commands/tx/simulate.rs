@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use soroban_rpc::Assembled;
 
 use crate::commands::{config, global, NetworkRunnable};
+use crate::utils::rpc::new_rpc_client;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -48,7 +49,7 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Self::Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
-        let client = crate::rpc::Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
         Ok(client.simulate_and_assemble_transaction(&tx).await?)
     }

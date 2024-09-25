@@ -3,16 +3,14 @@ use std::path::PathBuf;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
-use soroban_rpc::Client;
-
+use self::{network::Network, secret::Secret};
+use crate::utils::rpc::new_rpc_client;
 use crate::{
     print::Print,
     signer::{self, LocalKey, Signer, SignerKind},
     xdr::{Transaction, TransactionEnvelope},
     Pwd,
 };
-
-use self::{network::Network, secret::Secret};
 
 pub mod alias;
 pub mod data;
@@ -97,7 +95,7 @@ impl Args {
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let source_key = self.key_pair()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(

@@ -8,6 +8,7 @@ use soroban_env_host::xdr::{
     TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
 };
 
+use crate::utils::rpc::new_rpc_client;
 use crate::{
     commands::{
         global,
@@ -16,7 +17,7 @@ use crate::{
     },
     config::{self, data, locator, network},
     key,
-    rpc::{self, Client},
+    rpc::{self},
     wasm, Pwd,
 };
 
@@ -131,7 +132,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         let key = config.source_account()?;
         let extend_to = self.ledgers_to_extend();
 

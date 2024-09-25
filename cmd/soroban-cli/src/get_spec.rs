@@ -10,7 +10,7 @@ pub use soroban_spec_tools::contract as contract_spec;
 use crate::commands::global;
 use crate::config::{self, data, locator, network};
 use crate::rpc;
-use crate::utils::rpc::get_remote_wasm_from_hash;
+use crate::utils::rpc::{get_remote_wasm_from_hash, new_rpc_client};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -46,7 +46,7 @@ pub async fn get_remote_contract_spec(
         |c| c.get_network().map_err(Error::from),
     )?;
     tracing::trace!(?network);
-    let client = rpc::Client::new(&network.rpc_url)?;
+    let client = new_rpc_client(&network)?;
     // Get contract data
     let r = client.get_contract_data(contract_id).await?;
     tracing::trace!("{r:?}");

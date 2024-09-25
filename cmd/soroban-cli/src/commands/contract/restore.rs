@@ -9,6 +9,7 @@ use soroban_env_host::xdr::{
 };
 use stellar_strkey::DecodeError;
 
+use crate::utils::rpc::new_rpc_client;
 use crate::{
     commands::{
         contract::extend,
@@ -18,7 +19,7 @@ use crate::{
     },
     config::{self, data, locator, network},
     key,
-    rpc::{self, Client},
+    rpc::{self},
     wasm, Pwd,
 };
 
@@ -134,7 +135,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         let key = config.source_account()?;
 
         // Get the account sequence number

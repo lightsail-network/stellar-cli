@@ -11,6 +11,7 @@ use soroban_env_host::{
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
+use crate::utils::rpc::new_rpc_client;
 use crate::{
     commands::{
         global,
@@ -18,7 +19,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, network},
-    rpc::{Client, Error as SorobanRpcError},
+    rpc::Error as SorobanRpcError,
     utils::{contract_id_hash_from_asset, parsing::parse_asset},
 };
 
@@ -93,7 +94,7 @@ impl NetworkRunnable for Cmd {
         let asset = parse_asset(&self.asset)?;
 
         let network = config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

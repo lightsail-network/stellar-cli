@@ -2,11 +2,10 @@ use std::path::PathBuf;
 
 use clap::arg;
 use soroban_env_host::xdr;
-use soroban_rpc::Client;
 
 use crate::commands::contract::info::shared::Error::InvalidWasmHash;
 use crate::config::{locator, network};
-use crate::utils::rpc::get_remote_wasm_from_hash;
+use crate::utils::rpc::{get_remote_wasm_from_hash, new_rpc_client};
 use crate::wasm;
 use crate::wasm::Error::ContractIsStellarAsset;
 
@@ -71,7 +70,7 @@ pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
 
         let hash = xdr::Hash(hash);
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

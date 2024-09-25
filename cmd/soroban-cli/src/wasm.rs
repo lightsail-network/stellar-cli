@@ -3,7 +3,6 @@ use crate::config::network::Network;
 use clap::arg;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
-use soroban_rpc::Client;
 use soroban_spec_tools::contract::{self, Spec};
 use std::{
     fs, io,
@@ -11,7 +10,7 @@ use std::{
 };
 use stellar_xdr::curr::{ContractDataEntry, ContractExecutable, ScVal};
 
-use crate::utils::rpc::get_remote_wasm_from_hash;
+use crate::utils::rpc::{get_remote_wasm_from_hash, new_rpc_client};
 use crate::utils::{self};
 
 use crate::wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken};
@@ -128,7 +127,7 @@ pub async fn fetch_from_contract(
         .resolve_contract_id(contract_id, &network.network_passphrase)?
         .0;
 
-    let client = Client::new(&network.rpc_url)?;
+    let client = new_rpc_client(&network)?;
     client
         .verify_network_passphrase(Some(&network.network_passphrase))
         .await?;

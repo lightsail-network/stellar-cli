@@ -16,7 +16,8 @@ use crate::commands::{global, NetworkRunnable};
 use crate::config::{self, data, network};
 use crate::key;
 use crate::print::Print;
-use crate::rpc::{self, Client};
+use crate::rpc::{self};
+use crate::utils::rpc::new_rpc_client;
 use crate::{utils, wasm};
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
@@ -100,7 +101,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

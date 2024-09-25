@@ -6,6 +6,7 @@ use soroban_env_host::xdr::{self, Limits, ReadXdr};
 use super::{global, NetworkRunnable};
 use crate::config::{self, locator, network};
 use crate::rpc;
+use crate::utils::rpc::new_rpc_client;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -207,10 +208,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)
         }?;
 
-        let client = rpc::Client::new(&network.rpc_url)?;
-        client
-            .verify_network_passphrase(Some(&network.network_passphrase))
-            .await?;
+        let client = new_rpc_client(&network)?;
 
         let contract_ids: Vec<String> = self
             .contract_ids

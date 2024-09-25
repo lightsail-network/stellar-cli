@@ -15,10 +15,11 @@ use soroban_env_host::{
     HostError,
 };
 
+use crate::utils::rpc::new_rpc_client;
 use crate::{
     commands::{contract::install, HEADING_RPC},
     config::{self, data, locator, network},
-    rpc::{self, Client},
+    rpc::{self},
     utils, wasm,
 };
 use crate::{
@@ -208,7 +209,7 @@ impl NetworkRunnable for Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = new_rpc_client(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

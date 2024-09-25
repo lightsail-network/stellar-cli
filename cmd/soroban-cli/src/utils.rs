@@ -2,15 +2,13 @@ use phf::phf_map;
 use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
+use crate::config::network::Network;
 use soroban_env_host::xdr::{
     Asset, ContractIdPreimage, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
     Limits, ScMap, ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
-
 pub use soroban_spec_tools::contract as contract_spec;
-
-use crate::config::network::Network;
 
 /// # Errors
 ///
@@ -149,10 +147,36 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
 }
 
 pub mod rpc {
+    use std::str::FromStr;
+    use crate::commands::version;
+    use crate::config::network::Network;
+    use http::{HeaderMap, HeaderName, HeaderValue};
+    use jsonrpsee_http_client::HttpClientBuilder;
     use soroban_env_host::xdr;
     use soroban_rpc::{Client, Error};
+    use std::sync::Arc;
     use stellar_xdr::curr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
 
+    /// Returns a new RPC client for the given network.
+    pub fn new_rpc_client(network: &Network) -> Result<Client, Error> {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Client-Name", env!("CARGO_PKG_NAME").parse().unwrap());
+        headers.insert("X-Client-Version", version::pkg().parse().unwrap());
+
+        for (key, value) in &network.rpc_headers {
+            headers.insert(
+                HeaderName::from_str(key).unwrap(),
+                HeaderValue::from_str(value).unwrap(),
+            );
+        }
+
+        let http_client = Arc::new(
+            HttpClientBuilder::default()
+                .set_headers(headers)
+                .build(&network.rpc_url)?,
+        );
+        Client::new_with_http_client(&network.rpc_url, http_client)
+    }
     pub async fn get_remote_wasm_from_hash(client: &Client, hash: &Hash) -> Result<Vec<u8>, Error> {
         let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
         let contract_data = client.get_ledger_entries(&[code_key]).await?;

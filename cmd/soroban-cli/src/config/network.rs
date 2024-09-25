@@ -1,17 +1,18 @@
 use std::str::FromStr;
 
 use clap::arg;
+use http::{HeaderName, HeaderValue};
 use phf::phf_map;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use stellar_strkey::ed25519::PublicKey;
 
+use super::locator;
+use crate::utils::rpc::new_rpc_client;
 use crate::{
     commands::HEADING_RPC,
-    rpc::{self, Client},
+    rpc::{self},
 };
-
-use super::locator;
 pub mod passphrase;
 
 #[derive(thiserror::Error, Debug)]
@@ -33,6 +34,8 @@ pub enum Error {
     InvalidUrl(String),
     #[error("funding failed: {0}")]
     FundingFailed(String),
+    #[error("Invalid HTTP header: {0}")]
+    InvalidHttpHeader(String),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -56,6 +59,17 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub network_passphrase: Option<String>,
+    /// RPC headers in key:value format, can be specified multiple times or as a newline separated list
+    #[arg(
+        long = "rpc-header",
+        env = "STELLAR_RPC_HEADERS",
+        help_heading = HEADING_RPC,
+        value_parser = parse_http_header,
+        num_args = 1,
+        action = clap::ArgAction::Append,
+        value_delimiter = '\n',
+    )]
+    pub rpc_headers: Vec<(String, String)>,
     /// Name of network to use from config
     #[arg(
         long,
@@ -80,6 +94,7 @@ impl Args {
             Ok(Network {
                 rpc_url,
                 network_passphrase,
+                rpc_headers: vec![],
             })
         } else {
             Err(Error::Network)
@@ -102,8 +117,38 @@ pub struct Network {
             long,
             env = "STELLAR_NETWORK_PASSPHRASE",
             help_heading = HEADING_RPC,
-        )]
+    )]
     pub network_passphrase: String,
+    /// RPC headers in key:value format, can be specified multiple times or as a newline separated list
+    #[arg(
+        long = "rpc-header",
+        env = "STELLAR_RPC_HEADERS",
+        help_heading = HEADING_RPC,
+        value_parser = parse_http_header,
+        num_args = 1,
+        action = clap::ArgAction::Append,
+        value_delimiter = '\n',
+    )]
+    pub rpc_headers: Vec<(String, String)>,
+}
+
+fn parse_http_header(s: &str) -> Result<(String, String), Error> {
+    let pos = s
+        .find(':')
+        .ok_or_else(|| Error::InvalidHttpHeader(format!("missing `:` in `{}`", s)))?;
+    let key = s[..pos].trim().to_string();
+    let value = s[pos + 1..].trim().to_string();
+
+    // Validate header name and value
+    if HeaderName::from_str(&key).is_err() {
+        return Err(Error::InvalidHttpHeader(format!("Invalid HTTP header key `{}`", key)));
+    }
+
+    if HeaderValue::from_str(&value).is_err() {
+        return Err(Error::InvalidHttpHeader(format!("Invalid HTTP header value `{}`", value)));
+    }
+
+    Ok((key, value))
 }
 
 impl Network {
@@ -121,7 +166,7 @@ impl Network {
                 .path_and_query(format!("/friendbot?addr={addr}"))
                 .build()?)
         } else {
-            let client = Client::new(&self.rpc_url)?;
+            let client = new_rpc_client(&self)?;
             let network = client.get_network().await?;
             tracing::debug!("network {network:?}");
             let uri = client.friendbot_url().await?;
@@ -203,6 +248,76 @@ impl From<&(&str, &str)> for Network {
         Self {
             rpc_url: n.0.to_string(),
             network_passphrase: n.1.to_string(),
+            rpc_headers: vec![],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::network::parse_http_header;
+
+    #[test]
+    fn test_parse_valid_header() {
+        let result = parse_http_header("User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36");
+        assert!(result.is_ok());
+        let (key, value) = result.unwrap();
+        assert_eq!(key, "User-Agent");
+        assert_eq!(value, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36");
+    }
+
+    #[test]
+    fn test_parse_header_with_multiple_colons() {
+        let result = parse_http_header("Authorization: Bearer abc:123:xyz");
+        assert!(result.is_ok());
+        let (key, value) = result.unwrap();
+        assert_eq!(key, "Authorization");
+        assert_eq!(value, "Bearer abc:123:xyz");
+    }
+
+    #[test]
+    fn test_parse_header_with_spaces() {
+        let result = parse_http_header("  User-Agent:  Mozilla/5.0  ");
+        assert!(result.is_ok());
+        let (key, value) = result.unwrap();
+        assert_eq!(key, "User-Agent");
+        assert_eq!(value, "Mozilla/5.0");
+    }
+
+    #[test]
+    fn test_parse_header_missing_colon() {
+        let result = parse_http_header("Invalid-Header");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("missing `:`"));
+    }
+
+    #[test]
+    fn test_parse_header_invalid_key() {
+        let result = parse_http_header("Invalid\nHeader: value");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid HTTP header key"));
+    }
+
+    #[test]
+    fn test_parse_header_invalid_value() {
+        let result = parse_http_header("X-Custom-Header: Invalid\nValue");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid HTTP header value"));
+    }
+
+    #[test]
+    fn test_parse_header_empty_key() {
+        let result = parse_http_header(": some-value");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid HTTP header key"));
+    }
+
+    #[test]
+    fn test_parse_header_empty_value() {
+        let result = parse_http_header("X-Empty:");
+        assert!(result.is_ok());
+        let (key, value) = result.unwrap();
+        assert_eq!(key, "X-Empty");
+        assert_eq!(value, "");
     }
 }
