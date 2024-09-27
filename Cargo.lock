@@ -4289,6 +4289,7 @@ version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8f4955649ef5c38cc7f9e8aa41761d48fb9677197daea9984dc54f56aad5e63"
 dependencies = [
+ "async-compression",
  "base64 0.22.1",
  "bytes",
  "encoding_rs",
@@ -5093,7 +5094,6 @@ version = "21.5.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
- "async-compression",
  "async-trait",
  "base64 0.21.7",
  "bollard",

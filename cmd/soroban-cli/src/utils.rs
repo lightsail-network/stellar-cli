@@ -178,6 +178,7 @@ pub mod http {
     pub fn blocking_client() -> reqwest::blocking::Client {
         reqwest::blocking::Client::builder()
             .user_agent(user_agent())
+            .gzip(true)
             .build()
             .expect("Failed to build reqwest blocking client")
     }

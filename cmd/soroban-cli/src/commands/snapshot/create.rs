@@ -1,4 +1,3 @@
-use async_compression::tokio::bufread::GzipDecoder;
 use bytesize::ByteSize;
 use clap::{arg, Parser, ValueEnum};
 use futures::StreamExt;
@@ -22,8 +21,6 @@ use stellar_xdr::curr::{
     LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits, ReadXdr, ScAddress, ScContractInstance,
     ScVal,
 };
-use tokio::fs::OpenOptions;
-use tokio::io::BufReader;
 use tokio_util::io::StreamReader;
 use url::Url;
 
@@ -489,18 +486,12 @@ async fn cache_bucket(
         let stream = response
             .bytes_stream()
             .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
-        let stream_reader = StreamReader::new(stream);
-        let buf_reader = BufReader::new(stream_reader);
-        let mut decoder = GzipDecoder::new(buf_reader);
+        let mut reader = StreamReader::new(stream);
         let dl_path = cache_path.with_extension("dl");
-        let mut file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&dl_path)
+        let mut file = tokio::fs::File::create(&dl_path)
             .await
             .map_err(Error::WriteOpeningCachedBucket)?;
-        tokio::io::copy(&mut decoder, &mut file)
+        tokio::io::copy(&mut reader, &mut file)
             .await
             .map_err(Error::StreamingBucket)?;
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;

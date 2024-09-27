@@ -80,6 +80,7 @@ reqwest = { version = "0.12.7", default-features = false, features = [
     "json",
     "blocking",
     "stream",
+    "gzip"
 ] }
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
@@ -111,7 +112,6 @@ gix = { version = "0.58.0", default-features = false, features = [
     "blocking-http-transport-reqwest-rust-tls",
     "worktree-mutation",
 ] }
-async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
 
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
